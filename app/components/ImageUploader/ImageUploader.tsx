@@ -497,14 +497,14 @@ export default function ImageUploader() {
       }
     }, 3000);
 
-    // Safety timeout — 5 minutes
+    // Safety timeout — 10 minutes
     timeoutRef.current = setTimeout(
       () => {
         stopPolling();
         setError("Job timed out. Please try again.");
         setStage("error");
       },
-      5 * 60 * 1000,
+      10 * 60 * 1000,
     );
   };
 
