@@ -1,4 +1,5 @@
 import { LayoutGrid } from "lucide-react";
+import Link from "next/link";
 
 export default function Header() {
   return (
@@ -7,11 +8,16 @@ export default function Header() {
         <div className="w-7 h-7 rounded-lg bg-[#c9a84c]/10 border border-[#c9a84c]/25 flex items-center justify-center">
           <LayoutGrid size={13} className="text-[#c9a84c]" />
         </div>
-        <span className="text-sm font-medium text-white/80 tracking-tight">PropEnhance</span>
+        <span className="text-sm font-medium text-white/80 tracking-tight">
+          PropEnhance
+        </span>
       </div>
-      <span className="text-[10px] tracking-[0.25em] uppercase text-[#c9a84c]/60 font-light">
-        AI Photo Studio
-      </span>
+      <Link
+        href={"/gallery"}
+        className="text-[16px] cursor-pointer tracking-[0.25em] uppercase text-[#c9a84c] font-light"
+      >
+        Gallery
+      </Link>
     </header>
   );
 }
