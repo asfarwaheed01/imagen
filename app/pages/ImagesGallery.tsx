@@ -165,6 +165,7 @@ export default function ImagesGallery() {
 function GalleryCard({ item, index }: { item: GalleryItem; index: number }) {
   const [sliderPos, setSliderPos] = useState(50);
   const [dragging, setDragging] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const date = new Date(item.createdAt).toLocaleDateString("en-AU", {
@@ -265,7 +266,10 @@ function GalleryCard({ item, index }: { item: GalleryItem; index: number }) {
 
       {/* ── Footer ───────────────────────────────────────── */}
       <div className="px-4 py-3 border-t border-white/4">
-        <p className="text-[11px] text-white/28 line-clamp-1 mb-3 leading-relaxed">
+        <p
+          className={`text-[11px] text-white/28 mb-2 leading-relaxed cursor-pointer hover:text-white/40 transition-colors ${expanded ? "" : "line-clamp-1"}`}
+          onClick={() => setExpanded(!expanded)}
+        >
           {item.prompt}
         </p>
         <div className="flex items-center justify-between">
