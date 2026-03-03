@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import PaymentModal from "../PaymentModal/PaymentModal";
 import api from "@/app/lib/apiClient";
+import { useAuth } from "@/app/providers/AuthContext";
 
 const IMAGE_PRICING: Record<number, number> = {
   2: 32,
@@ -139,6 +140,7 @@ interface PaymentState {
 
 const UploadForm = () => {
   const router = useRouter();
+  const user = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -225,6 +227,7 @@ const UploadForm = () => {
   // ── Create payment intent ─────────────────────────────────────────────────
 
   const handlePay = async () => {
+    if (!user) return router.push("/auth");
     if (!uploadEnabled || form.files.length === 0) return;
     setError("");
     setSubmitting(true);
@@ -448,7 +451,9 @@ const UploadForm = () => {
             </button>
 
             <button
-              onClick={() => router.push("/library")}
+              onClick={() =>
+                user ? router.push("/library") : router.push("/auth")
+              }
               className="w-full h-14 rounded-2xl bg-[#f0f2f4] hover:bg-gray-200 text-gray-800 text-[15px] font-medium flex items-center justify-center gap-2 transition-colors"
             >
               <FolderOpen className="w-4 h-4" />

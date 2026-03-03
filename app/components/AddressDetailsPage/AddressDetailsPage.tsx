@@ -17,8 +17,6 @@ import {
 } from "lucide-react";
 import api from "@/app/lib/apiClient";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
 interface Revision {
   revisionId: number;
   imageId: number;
@@ -60,8 +58,6 @@ interface Order {
   paidAt: string | null;
   createdAt: string;
 }
-
-// ── Slider ────────────────────────────────────────────────────────────────────
 
 function SliderComparison({
   originalUrl,
@@ -107,7 +103,7 @@ function SliderComparison({
   return (
     <div
       ref={containerRef}
-      className="relative w-full aspect-4/3 overflow-hidden select-none rounded-t-2xl"
+      className="relative w-full aspect-4/3 overflow-hidden select-none"
       style={{ cursor: dragging ? "ew-resize" : "col-resize" }}
       onMouseDown={(e) => {
         e.preventDefault();
@@ -128,14 +124,10 @@ function SliderComparison({
         draggable={false}
         style={{ clipPath: `inset(0 ${100 - sliderPos}% 0 0)` }}
       />
-
-      {/* Divider */}
       <div
         className="absolute top-0 bottom-0 w-px bg-white/70 pointer-events-none"
         style={{ left: `${sliderPos}%` }}
       />
-
-      {/* Handle */}
       <div
         className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-9 h-9 rounded-full bg-white shadow-lg flex items-center justify-center pointer-events-none"
         style={{ left: `${sliderPos}%` }}
@@ -143,8 +135,6 @@ function SliderComparison({
         <ChevronLeft size={12} className="text-gray-700" />
         <ChevronRight size={12} className="text-gray-700" />
       </div>
-
-      {/* Labels */}
       <span className="absolute bottom-3 left-3 text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-gray-900/70 backdrop-blur-sm text-white pointer-events-none">
         {originalLabel}
       </span>
@@ -179,6 +169,78 @@ const StatusBadge = ({ status }: { status: string }) => {
   );
 };
 
+// ── Revision prompt box ───────────────────────────────────────────────────────
+
+function RevisionBox({
+  imageId,
+  sourceLabel,
+  sourceUrl,
+  revisionNumber,
+  onSubmit,
+  submittingId,
+}: {
+  imageId: number;
+  sourceLabel: string;
+  sourceUrl: string;
+  revisionNumber: number;
+  onSubmit: (imageId: number, prompt: string, sourceUrl: string) => void;
+  submittingId: number | null;
+}) {
+  const [prompt, setPrompt] = useState("");
+
+  return (
+    <div className="border border-gray-100 rounded-2xl overflow-hidden bg-[#f8f9fb]">
+      {/* Source preview */}
+      <div className="relative w-full aspect-video overflow-hidden">
+        <img
+          src={sourceUrl}
+          alt={sourceLabel}
+          className="w-full h-full object-cover"
+        />
+        <span className="absolute bottom-2 left-2 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-gray-900/60 backdrop-blur-sm text-white">
+          {sourceLabel} — revision base
+        </span>
+      </div>
+
+      {/* Prompt */}
+      <div className="p-3 space-y-2">
+        <p className="text-[11px] text-gray-400 font-medium">
+          Create Revision {revisionNumber}
+        </p>
+        <textarea
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          placeholder="Describe changes for this revision…"
+          rows={2}
+          className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-[13px] text-gray-800 placeholder:text-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-gray-200 transition-colors"
+        />
+        <div className="flex justify-end">
+          <button
+            onClick={() => {
+              if (prompt.trim()) {
+                onSubmit(imageId, prompt, sourceUrl);
+                setPrompt("");
+              }
+            }}
+            disabled={!prompt.trim() || submittingId === imageId}
+            className="flex items-center gap-1.5 h-9 px-4 bg-gray-900 hover:bg-gray-700 disabled:bg-gray-200 disabled:cursor-not-allowed text-white text-[12px] font-medium rounded-xl transition-colors"
+          >
+            {submittingId === imageId ? (
+              <>
+                <Loader2 size={13} className="animate-spin" /> Sending…
+              </>
+            ) : (
+              <>
+                <Send size={13} /> Submit Revision
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Image Card ────────────────────────────────────────────────────────────────
 
 function ImageCard({
@@ -189,25 +251,39 @@ function ImageCard({
 }: {
   image: ImageItem;
   index: number;
-  onRevisionSubmit: (imageId: number, prompt: string) => void;
+  onRevisionSubmit: (
+    imageId: number,
+    prompt: string,
+    sourceUrl: string,
+  ) => void;
   submittingId: number | null;
 }) {
   const [revisionsOpen, setRevisionsOpen] = useState(false);
-  const [prompt, setPrompt] = useState("");
 
   const originalUrl = image.originalKey ?? "";
   const editedUrl = image.editedKey ?? image.job?.resultKey ?? "";
   const hasResult = !!editedUrl;
-
   const jobStatus = image.job?.status ?? image.status;
+
+  // The latest available image URL to base next revision on
+  const latestRevisionWithResult = [...image.revisions]
+    .reverse()
+    .find((r) => r.resultKey);
+  const latestUrl = latestRevisionWithResult?.resultKey ?? editedUrl;
+  const nextRevNumber = image.revisions.length + 1;
+
+  // Label for the latest source
+  const latestLabel = latestRevisionWithResult
+    ? `Revision ${latestRevisionWithResult.revisionNumber}`
+    : "Edited";
 
   return (
     <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-      {/* ── Slider or placeholder ─────────────────────────────────────── */}
+      {/* ── Main slider: Original vs Edited ──────────────────────────── */}
       {hasResult ? (
         <SliderComparison originalUrl={originalUrl} resultUrl={editedUrl} />
       ) : (
-        <div className="relative w-full aspect-4/3 bg-gray-50 rounded-t-2xl flex items-center justify-center overflow-hidden">
+        <div className="relative w-full aspect-4/3 bg-gray-50 flex items-center justify-center overflow-hidden">
           {originalUrl && (
             <img
               src={originalUrl}
@@ -224,7 +300,7 @@ function ImageCard({
         </div>
       )}
 
-      {/* ── Info row ──────────────────────────────────────────────────── */}
+      {/* ── Info row ─────────────────────────────────────────────────── */}
       <div className="px-4 pt-3 pb-2 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-[15px] font-bold text-gray-900 shrink-0">
@@ -237,7 +313,25 @@ function ImageCard({
         <StatusBadge status={jobStatus} />
       </div>
 
-      {/* ── View Revisions button ──────────────────────────────────────── */}
+      {/* ── Download row ─────────────────────────────────────────────── */}
+      {hasResult && (
+        <div className="px-4 pb-2 grid grid-cols-2 gap-2">
+          <button
+            onClick={() => window.open(originalUrl, "_blank")}
+            className="h-10 rounded-xl border border-gray-200 text-[13px] text-gray-600 hover:bg-gray-50 transition-colors flex items-center justify-center gap-1.5"
+          >
+            <Download size={13} /> Original
+          </button>
+          <button
+            onClick={() => window.open(editedUrl, "_blank")}
+            className="h-10 rounded-xl border border-gray-200 text-[13px] text-gray-600 hover:bg-gray-50 transition-colors flex items-center justify-center gap-1.5"
+          >
+            <Download size={13} /> Edited
+          </button>
+        </div>
+      )}
+
+      {/* ── View Revisions toggle ─────────────────────────────────────── */}
       {image.revisions.length > 0 && (
         <div className="px-4 pb-2">
           <button
@@ -256,98 +350,72 @@ function ImageCard({
         </div>
       )}
 
-      {/* ── Revisions list ────────────────────────────────────────────── */}
+      {/* ── Revisions list (each with its own slider + revision box) ─── */}
       {revisionsOpen && image.revisions.length > 0 && (
         <div className="px-4 pb-2 space-y-3">
-          {image.revisions.map((rev) => (
-            <div
-              key={rev.revisionId}
-              className="rounded-xl overflow-hidden border border-gray-100"
-            >
-              {rev.resultKey ? (
-                <>
-                  <SliderComparison
-                    originalUrl={editedUrl || originalUrl}
-                    resultUrl={rev.resultKey}
-                    originalLabel="Enhanced"
-                    resultLabel={`Rev ${rev.revisionNumber}`}
-                  />
-                  <div className="px-3 py-2 flex items-center justify-between bg-gray-50">
-                    <span className="text-[11px] text-gray-500">
-                      Revision {rev.revisionNumber}
-                      {rev.clientNotes ? ` · ${rev.clientNotes}` : ""}
+          {image.revisions.map((rev, i) => {
+            // The base for this revision's slider is the previous revision or editedUrl
+            const prevUrl =
+              i === 0
+                ? editedUrl
+                : (image.revisions[i - 1].resultKey ?? editedUrl);
+
+            return (
+              <div
+                key={rev.revisionId}
+                className="rounded-xl overflow-hidden border border-gray-100"
+              >
+                {rev.resultKey ? (
+                  <>
+                    <SliderComparison
+                      originalUrl={prevUrl}
+                      resultUrl={rev.resultKey}
+                      originalLabel={
+                        i === 0 ? "Edited" : `Rev ${rev.revisionNumber - 1}`
+                      }
+                      resultLabel={`Rev ${rev.revisionNumber}`}
+                    />
+                    <div className="px-3 py-2 flex items-center justify-between bg-gray-50">
+                      <span className="text-[11px] text-gray-500">
+                        Revision {rev.revisionNumber}
+                        {rev.clientNotes ? ` · ${rev.clientNotes}` : ""}
+                      </span>
+                      <button
+                        onClick={() => window.open(rev.resultKey!, "_blank")}
+                        className="flex items-center gap-1 text-[11px] text-gray-500 hover:text-gray-800 transition-colors"
+                      >
+                        <Download size={11} /> Download
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="px-3 py-3 flex items-center gap-2 bg-gray-50">
+                    <Loader2 size={13} className="text-gray-400 animate-spin" />
+                    <span className="text-[11px] text-gray-400">
+                      Revision {rev.revisionNumber} · {rev.status}
+                      {rev.clientNotes ? ` · "${rev.clientNotes}"` : ""}
                     </span>
-                    <button
-                      onClick={() => window.open(rev.resultKey!, "_blank")}
-                      className="flex items-center gap-1 text-[11px] text-gray-500 hover:text-gray-800 transition-colors"
-                    >
-                      <Download size={11} /> Download
-                    </button>
                   </div>
-                </>
-              ) : (
-                <div className="px-3 py-3 flex items-center gap-2 bg-gray-50">
-                  <Loader2 size={13} className="text-gray-400 animate-spin" />
-                  <span className="text-[11px] text-gray-400">
-                    Revision {rev.revisionNumber} · {rev.status}
-                  </span>
-                </div>
-              )}
-            </div>
-          ))}
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {/* ── Quick action buttons ───────────────────────────────────────── */}
+      {/* ── Revision box — always visible if image has a result ──────── */}
       {hasResult && (
-        <div className="px-4 pb-2 grid grid-cols-2 gap-2">
-          <button
-            onClick={() => window.open(originalUrl, "_blank")}
-            className="h-10 rounded-xl border border-gray-200 text-[13px] text-gray-600 hover:bg-gray-50 transition-colors flex items-center justify-center gap-1.5"
-          >
-            <Download size={13} /> Original
-          </button>
-          <button
-            onClick={() => window.open(editedUrl, "_blank")}
-            className="h-10 rounded-xl border border-gray-200 text-[13px] text-gray-600 hover:bg-gray-50 transition-colors flex items-center justify-center gap-1.5"
-          >
-            <Download size={13} /> Edited
-          </button>
+        <div className="px-4 pb-4">
+          <RevisionBox
+            imageId={image.id}
+            sourceLabel={latestLabel}
+            sourceUrl={latestUrl}
+            revisionNumber={nextRevNumber}
+            onSubmit={onRevisionSubmit}
+            submittingId={submittingId}
+          />
         </div>
       )}
-
-      {/* ── Revision textarea + submit ─────────────────────────────────── */}
-      <div className="px-4 pb-4 space-y-2">
-        <textarea
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          placeholder="Add revision for this image..."
-          rows={3}
-          className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[13px] text-gray-800 placeholder:text-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-gray-200 transition-colors"
-        />
-        <div className="flex justify-end">
-          <button
-            onClick={() => {
-              if (prompt.trim()) {
-                onRevisionSubmit(image.id, prompt);
-                setPrompt("");
-              }
-            }}
-            disabled={!prompt.trim() || submittingId === image.id}
-            className="flex items-center gap-2 h-11 px-5 bg-gray-900 hover:bg-gray-700 disabled:bg-gray-200 disabled:cursor-not-allowed text-white text-[13px] font-medium rounded-xl transition-colors"
-          >
-            {submittingId === image.id ? (
-              <>
-                <Loader2 size={14} className="animate-spin" /> Sending…
-              </>
-            ) : (
-              <>
-                <Send size={14} /> Submit Revision
-              </>
-            )}
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
@@ -377,12 +445,17 @@ const OrderDetailPage = () => {
       .finally(() => setLoading(false));
   }, [orderId]);
 
-  const handleRevisionSubmit = async (imageId: number, prompt: string) => {
+  const handleRevisionSubmit = async (
+    imageId: number,
+    prompt: string,
+    sourceUrl: string,
+  ) => {
     setSubmittingId(imageId);
     try {
       await api.post(`/api/orders/${orderId}/revisions`, {
         imageIds: [imageId],
         prompt,
+        sourceUrl,
       });
       const { data } = await api.get(`/api/library/${orderId}`);
       setImages(data.images);
@@ -392,8 +465,6 @@ const OrderDetailPage = () => {
       setSubmittingId(null);
     }
   };
-
-  // ── Header ────────────────────────────────────────────────────────────────
 
   const Header = () => (
     <div className="sticky top-16 z-30 bg-white/90 backdrop-blur-sm border-b border-gray-100 px-4 py-4">
@@ -413,7 +484,6 @@ const OrderDetailPage = () => {
             {images.length !== 1 ? "s" : ""}
           </p>
         </div>
-        {/* View toggle */}
         <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-xl p-1">
           <button
             onClick={() => setView("list")}
@@ -432,12 +502,10 @@ const OrderDetailPage = () => {
     </div>
   );
 
-  // ── Loading ───────────────────────────────────────────────────────────────
-
   if (loading)
     return (
-      <div className="min-h-screen bg-white">
-        <div className="sticky top-0 z-30 bg-white/90 backdrop-blur-sm border-b border-gray-100 px-4 py-4">
+      <div className="min-h-screen bg-white pt-16">
+        <div className="sticky top-16 z-30 bg-white/90 backdrop-blur-sm border-b border-gray-100 px-4 py-4">
           <div className="max-w-2xl mx-auto flex items-center gap-3">
             <button
               onClick={() => router.back()}
@@ -454,12 +522,10 @@ const OrderDetailPage = () => {
       </div>
     );
 
-  // ── Error ─────────────────────────────────────────────────────────────────
-
   if (error)
     return (
-      <div className="min-h-screen bg-white">
-        <div className="sticky top-0 z-30 bg-white/90 backdrop-blur-sm border-b border-gray-100 px-4 py-4">
+      <div className="min-h-screen bg-white pt-16">
+        <div className="sticky top-16 z-30 bg-white/90 backdrop-blur-sm border-b border-gray-100 px-4 py-4">
           <div className="max-w-2xl mx-auto flex items-center gap-3">
             <button
               onClick={() => router.back()}
@@ -482,11 +548,9 @@ const OrderDetailPage = () => {
       </div>
     );
 
-  // ── Empty ─────────────────────────────────────────────────────────────────
-
   if (images.length === 0)
     return (
-      <div className="min-h-screen bg-[#f8f9fb]">
+      <div className="min-h-screen bg-[#f8f9fb] pt-16">
         <Header />
         <div className="flex flex-col items-center justify-center py-32 gap-4">
           <div className="w-14 h-14 rounded-2xl bg-white border border-gray-200 flex items-center justify-center">
@@ -510,10 +574,8 @@ const OrderDetailPage = () => {
       </div>
     );
 
-  // ── Main ──────────────────────────────────────────────────────────────────
-
   return (
-    <div className="min-h-screen pt-16 pb-10">
+    <div className="min-h-screen bg-[#f8f9fb] pt-16 pb-10">
       <Header />
       <div className="max-w-2xl mx-auto px-4 pt-5">
         <div
