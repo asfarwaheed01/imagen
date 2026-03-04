@@ -23,12 +23,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Silent refresh on mount — restores session from httpOnly cookie
   useEffect(() => {
     api
       .post("/api/auth/refresh")
       .then(({ data }) => {
-        setAccessToken(data.accessToken); // ← syncs token into apiClient memory
+        setAccessToken(data.accessToken);
         setUser(data.user);
       })
       .catch(() => {
