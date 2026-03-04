@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   ChevronLeft,
@@ -14,8 +14,11 @@ import {
   Images,
   LayoutGrid,
   List,
+  Check,
 } from "lucide-react";
 import api from "@/app/lib/apiClient";
+
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 interface Revision {
   revisionId: number;
@@ -58,6 +61,8 @@ interface Order {
   paidAt: string | null;
   createdAt: string;
 }
+
+// ── Slider ────────────────────────────────────────────────────────────────────
 
 function SliderComparison({
   originalUrl,
@@ -169,75 +174,40 @@ const StatusBadge = ({ status }: { status: string }) => {
   );
 };
 
-// ── Revision prompt box ───────────────────────────────────────────────────────
+// ── Selectable version thumbnail ──────────────────────────────────────────────
 
-function RevisionBox({
-  imageId,
-  sourceLabel,
-  sourceUrl,
-  revisionNumber,
-  onSubmit,
-  submittingId,
+function VersionThumb({
+  url,
+  label,
+  selected,
+  onClick,
 }: {
-  imageId: number;
-  sourceLabel: string;
-  sourceUrl: string;
-  revisionNumber: number;
-  onSubmit: (imageId: number, prompt: string, sourceUrl: string) => void;
-  submittingId: number | null;
+  url: string;
+  label: string;
+  selected: boolean;
+  onClick: () => void;
 }) {
-  const [prompt, setPrompt] = useState("");
-
   return (
-    <div className="border border-gray-100 rounded-2xl overflow-hidden bg-[#f8f9fb]">
-      {/* Source preview */}
-      <div className="relative w-full aspect-video overflow-hidden">
-        <img
-          src={sourceUrl}
-          alt={sourceLabel}
-          className="w-full h-full object-cover"
-        />
-        <span className="absolute bottom-2 left-2 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-gray-900/60 backdrop-blur-sm text-white">
-          {sourceLabel} — revision base
+    <button
+      onClick={onClick}
+      className={`relative shrink-0 w-36 rounded-xl overflow-hidden border-2 transition-all ${
+        selected
+          ? "border-gray-900 shadow-md"
+          : "border-gray-200 hover:border-gray-400"
+      }`}
+    >
+      <img src={url} alt={label} className="w-full aspect-4/3 object-cover" />
+      <div className="px-2 py-1.5 bg-white flex items-center justify-between gap-1">
+        <span className="text-[11px] font-medium text-gray-700 truncate">
+          {label}
         </span>
+        {selected && (
+          <span className="w-4 h-4 rounded-full bg-gray-900 flex items-center justify-center shrink-0">
+            <Check size={9} className="text-white" />
+          </span>
+        )}
       </div>
-
-      {/* Prompt */}
-      <div className="p-3 space-y-2">
-        <p className="text-[11px] text-gray-400 font-medium">
-          Create Revision {revisionNumber}
-        </p>
-        <textarea
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          placeholder="Describe changes for this revision…"
-          rows={2}
-          className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-[13px] text-gray-800 placeholder:text-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-gray-200 transition-colors"
-        />
-        <div className="flex justify-end">
-          <button
-            onClick={() => {
-              if (prompt.trim()) {
-                onSubmit(imageId, prompt, sourceUrl);
-                setPrompt("");
-              }
-            }}
-            disabled={!prompt.trim() || submittingId === imageId}
-            className="flex items-center gap-1.5 h-9 px-4 bg-gray-900 hover:bg-gray-700 disabled:bg-gray-200 disabled:cursor-not-allowed text-white text-[12px] font-medium rounded-xl transition-colors"
-          >
-            {submittingId === imageId ? (
-              <>
-                <Loader2 size={13} className="animate-spin" /> Sending…
-              </>
-            ) : (
-              <>
-                <Send size={13} /> Submit Revision
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-    </div>
+    </button>
   );
 }
 
@@ -258,28 +228,48 @@ function ImageCard({
   ) => void;
   submittingId: number | null;
 }) {
-  const [revisionsOpen, setRevisionsOpen] = useState(false);
-
   const originalUrl = image.originalKey ?? "";
   const editedUrl = image.editedKey ?? image.job?.resultKey ?? "";
   const hasResult = !!editedUrl;
   const jobStatus = image.job?.status ?? image.status;
 
-  // The latest available image URL to base next revision on
-  const latestRevisionWithResult = [...image.revisions]
-    .reverse()
-    .find((r) => r.resultKey);
-  const latestUrl = latestRevisionWithResult?.resultKey ?? editedUrl;
-  const nextRevNumber = image.revisions.length + 1;
+  const completedRevisions = image.revisions.filter((r) => r.resultKey);
+  const hasRevisions = completedRevisions.length > 0;
 
-  // Label for the latest source
-  const latestLabel = latestRevisionWithResult
-    ? `Revision ${latestRevisionWithResult.revisionNumber}`
-    : "Edited";
+  // Build version list for revision selector: edited + all completed revisions
+  const versions = hasResult
+    ? [
+        { key: "edited", label: "Edited", url: editedUrl },
+        ...completedRevisions.map((r) => ({
+          key: `rev-${r.revisionId}`,
+          label: `Revision ${r.revisionNumber}`,
+          url: r.resultKey!,
+        })),
+      ]
+    : [];
+
+  // Default selected = last version
+  const [selectedVersionKey, setSelectedVersionKey] = useState<string>(
+    versions.length > 0 ? versions[versions.length - 1].key : "edited",
+  );
+  const [revisionsOpen, setRevisionsOpen] = useState(false);
+  const [prompt, setPrompt] = useState("");
+
+  // Keep selected version pointing to the latest when new revisions arrive
+  useEffect(() => {
+    if (versions.length > 0) {
+      setSelectedVersionKey(versions[versions.length - 1].key);
+    }
+  }, [image.revisions.length]);
+
+  const selectedVersion =
+    versions.find((v) => v.key === selectedVersionKey) ??
+    versions[versions.length - 1];
+  const nextRevNumber = image.revisions.length + 1;
 
   return (
     <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-      {/* ── Main slider: Original vs Edited ──────────────────────────── */}
+      {/* ── Main slider ──────────────────────────────────────────────── */}
       {hasResult ? (
         <SliderComparison originalUrl={originalUrl} resultUrl={editedUrl} />
       ) : (
@@ -331,8 +321,8 @@ function ImageCard({
         </div>
       )}
 
-      {/* ── View Revisions toggle ─────────────────────────────────────── */}
-      {image.revisions.length > 0 && (
+      {/* ── All Revisions section — only shows if revisions exist ─────── */}
+      {hasRevisions && (
         <div className="px-4 pb-2">
           <button
             onClick={() => setRevisionsOpen((o) => !o)}
@@ -341,79 +331,76 @@ function ImageCard({
             <Eye size={14} />
             {revisionsOpen
               ? "Hide Revisions"
-              : `View Revisions (${image.revisions.length})`}
+              : `All Revisions (${completedRevisions.length})`}
             <ChevronDown
               size={13}
               className={`transition-transform duration-200 ${revisionsOpen ? "rotate-180" : ""}`}
             />
           </button>
-        </div>
-      )}
 
-      {/* ── Revisions list (each with its own slider + revision box) ─── */}
-      {revisionsOpen && image.revisions.length > 0 && (
-        <div className="px-4 pb-2 space-y-3">
-          {image.revisions.map((rev, i) => {
-            // The base for this revision's slider is the previous revision or editedUrl
-            const prevUrl =
-              i === 0
-                ? editedUrl
-                : (image.revisions[i - 1].resultKey ?? editedUrl);
-
-            return (
-              <div
-                key={rev.revisionId}
-                className="rounded-xl overflow-hidden border border-gray-100"
-              >
-                {rev.resultKey ? (
-                  <>
-                    <SliderComparison
-                      originalUrl={prevUrl}
-                      resultUrl={rev.resultKey}
-                      originalLabel={
-                        i === 0 ? "Edited" : `Rev ${rev.revisionNumber - 1}`
-                      }
-                      resultLabel={`Rev ${rev.revisionNumber}`}
-                    />
-                    <div className="px-3 py-2 flex items-center justify-between bg-gray-50">
-                      <span className="text-[11px] text-gray-500">
-                        Revision {rev.revisionNumber}
-                        {rev.clientNotes ? ` · ${rev.clientNotes}` : ""}
-                      </span>
-                      <button
-                        onClick={() => window.open(rev.resultKey!, "_blank")}
-                        className="flex items-center gap-1 text-[11px] text-gray-500 hover:text-gray-800 transition-colors"
-                      >
-                        <Download size={11} /> Download
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <div className="px-3 py-3 flex items-center gap-2 bg-gray-50">
-                    <Loader2 size={13} className="text-gray-400 animate-spin" />
-                    <span className="text-[11px] text-gray-400">
-                      Revision {rev.revisionNumber} · {rev.status}
-                      {rev.clientNotes ? ` · "${rev.clientNotes}"` : ""}
-                    </span>
-                  </div>
-                )}
+          {/* Horizontal scrollable revision thumbnails */}
+          {revisionsOpen && (
+            <div className="mt-3 space-y-3">
+              <p className="text-[11px] text-gray-400 font-medium">
+                Select a version to revise from:
+              </p>
+              <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+                {versions.map((v) => (
+                  <VersionThumb
+                    key={v.key}
+                    url={v.url}
+                    label={v.label}
+                    selected={selectedVersionKey === v.key}
+                    onClick={() => setSelectedVersionKey(v.key)}
+                  />
+                ))}
               </div>
-            );
-          })}
+            </div>
+          )}
         </div>
       )}
 
-      {/* ── Revision box — always visible if image has a result ──────── */}
+      {/* ── Revision prompt — only if image has a result ─────────────── */}
       {hasResult && (
-        <div className="px-4 pb-4">
-          <RevisionBox
-            imageId={image.id}
-            sourceLabel={latestLabel}
-            sourceUrl={latestUrl}
-            revisionNumber={nextRevNumber}
-            onSubmit={onRevisionSubmit}
-            submittingId={submittingId}
+        <div className="px-4 pb-4 space-y-2">
+          {/* Show which version will be used as base */}
+          {selectedVersion && (
+            <p className="text-[11px] text-gray-400">
+              Creating Revision {nextRevNumber} from{" "}
+              <span className="font-medium text-gray-600">
+                {selectedVersion.label}
+              </span>
+            </p>
+          )}
+          <textarea
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder="Add revision for this image..."
+            rows={3}
+            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[13px] text-gray-800 placeholder:text-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-gray-200 transition-colors"
           />
+          <div className="flex justify-end">
+            <button
+              onClick={() => {
+                if (prompt.trim() && selectedVersion) {
+                  onRevisionSubmit(image.id, prompt, selectedVersion.url);
+                  setPrompt("");
+                }
+              }}
+              disabled={!prompt.trim() || submittingId === image.id}
+              className="flex items-center gap-2 h-11 px-5 bg-gray-900 hover:bg-gray-700 disabled:bg-gray-200 disabled:cursor-not-allowed text-white text-[13px] font-medium rounded-xl transition-colors"
+            >
+              {submittingId === image.id ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" /> Sending…
+                </>
+              ) : (
+                <>
+                  <Send size={14} /> Submit Revision
+                </>
+              )}
+            </button>
+          </div>
         </div>
       )}
     </div>
