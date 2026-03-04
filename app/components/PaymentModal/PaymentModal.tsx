@@ -15,10 +15,16 @@ const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!,
 );
 
+interface ImageMetaPayload {
+  category: string;
+  notes: string;
+}
+
 interface CheckoutFormProps {
   orderId: number;
   totalCost: number;
   files: File[];
+  imageMeta: ImageMetaPayload[];
   onSuccess: (orderId: number) => void;
   onError: (msg: string) => void;
 }
@@ -27,6 +33,7 @@ const CheckoutForm = ({
   orderId,
   totalCost,
   files,
+  imageMeta,
   onSuccess,
   onError,
 }: CheckoutFormProps) => {
@@ -40,7 +47,6 @@ const CheckoutForm = ({
     setLoading(true);
 
     try {
-      // 1. Confirm payment with Stripe
       const { error, paymentIntent } = await stripe.confirmPayment({
         elements,
         redirect: "if_required",
@@ -50,9 +56,9 @@ const CheckoutForm = ({
       if (paymentIntent?.status !== "succeeded")
         throw new Error("Payment not completed");
 
-      // 2. Upload images — multipart, so use FormData with axios directly
       const formData = new FormData();
       files.forEach((f) => formData.append("images", f));
+      formData.append("imageMeta", JSON.stringify(imageMeta));
 
       await api.post(`/api/orders/${orderId}/images`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
@@ -88,13 +94,12 @@ const CheckoutForm = ({
   );
 };
 
-// ── Modal wrapper ─────────────────────────────────────────────────────────────
-
 interface PaymentModalProps {
   clientSecret: string;
   orderId: number;
   totalCost: number;
   files: File[];
+  imageMeta: ImageMetaPayload[];
   onSuccess: (orderId: number) => void;
   onClose: () => void;
 }
@@ -104,6 +109,7 @@ const PaymentModal = ({
   orderId,
   totalCost,
   files,
+  imageMeta,
   onSuccess,
   onClose,
 }: PaymentModalProps) => {
@@ -118,15 +124,12 @@ const PaymentModal = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-      {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
         onClick={onClose}
       />
 
-      {/* Sheet — scrollable if content overflows */}
       <div className="relative w-full sm:max-w-md bg-white sm:rounded-3xl rounded-t-3xl shadow-2xl z-10 flex flex-col max-h-[90vh]">
-        {/* Fixed header */}
         <div className="flex items-center justify-between px-6 pt-6 pb-4 shrink-0">
           <div>
             <h2 className="text-[17px] font-bold text-gray-900">
@@ -144,14 +147,12 @@ const PaymentModal = ({
           </button>
         </div>
 
-        {/* Scrollable body */}
         <div className="overflow-y-auto px-6 pb-8">
           {error && (
             <p className="text-sm text-red-500 bg-red-50 border border-red-100 rounded-xl px-4 py-2.5 mb-4">
               {error}
             </p>
           )}
-
           <Elements
             stripe={stripePromise}
             options={{
@@ -170,6 +171,7 @@ const PaymentModal = ({
               orderId={orderId}
               totalCost={totalCost}
               files={files}
+              imageMeta={imageMeta}
               onSuccess={onSuccess}
               onError={setError}
             />

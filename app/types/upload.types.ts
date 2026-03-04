@@ -1,3 +1,9 @@
+export interface ImageMeta {
+  file: File;
+  category: string;
+  notes: string;
+}
+
 export interface FormState {
   address: string;
   placeId: string;
@@ -7,7 +13,7 @@ export interface FormState {
   carSpaces: number;
   imageCount: number;
   additionalInfo: string;
-  files: File[];
+  images: ImageMeta[];
 }
 
 export interface OrderProgress {

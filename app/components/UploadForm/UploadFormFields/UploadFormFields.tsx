@@ -8,9 +8,14 @@ import {
   Loader2,
   AlertCircle,
   CheckCircle2,
+  ChevronDown,
 } from "lucide-react";
 import api from "@/app/lib/apiClient";
-import { OrderProgress, PlaceSuggestion } from "@/app/types/upload.types";
+import {
+  ImageMeta,
+  OrderProgress,
+  PlaceSuggestion,
+} from "@/app/types/upload.types";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -32,6 +37,14 @@ export const PROPERTY_TYPES = [
   "Commercial",
   "Villa",
   "Acreage",
+];
+
+export const IMAGE_CATEGORIES = [
+  "Internal",
+  "External Day",
+  "Dusk",
+  "Drone",
+  "Day to Dusk",
 ];
 
 // ── Primitives ────────────────────────────────────────────────────────────────
@@ -197,7 +210,6 @@ export function AddressAutocomplete({
           />
         )}
       </div>
-
       {nsw === false && (
         <div className="flex items-center gap-1.5 mt-1.5">
           <AlertCircle size={12} className="text-red-400 shrink-0" />
@@ -212,7 +224,6 @@ export function AddressAutocomplete({
           <p className="text-[11px] text-green-600">NSW property confirmed</p>
         </div>
       )}
-
       {open && suggestions.length > 0 && (
         <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
           {suggestions.map((s) => (
@@ -238,47 +249,126 @@ export function AddressAutocomplete({
   );
 }
 
-// ── Upload zone + image previews ──────────────────────────────────────────────
+// ── Per-image card with category + notes ──────────────────────────────────────
 
-function ImageThumb({ file, onRemove }: { file: File; onRemove: () => void }) {
+function ImageCard({
+  item,
+  index,
+  onChange,
+  onRemove,
+}: {
+  item: ImageMeta;
+  index: number;
+  onChange: (patch: Partial<ImageMeta>) => void;
+  onRemove: () => void;
+}) {
   const [url, setUrl] = useState<string | null>(null);
+  const [catOpen, setCatOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
-    const u = URL.createObjectURL(file);
+    const u = URL.createObjectURL(item.file);
     setUrl(u);
     return () => URL.revokeObjectURL(u);
-  }, [file]);
+  }, [item.file]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node)
+      )
+        setCatOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   return (
-    <div className="relative group aspect-square rounded-xl overflow-hidden bg-gray-100 border border-gray-200">
-      {url && (
-        <img src={url} alt={file.name} className="w-full h-full object-cover" />
-      )}
-      <button
-        onClick={onRemove}
-        className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 hover:bg-black/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-      >
-        <X size={11} className="text-white" />
-      </button>
-      <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/50 to-transparent px-1.5 pb-1 pt-3 opacity-0 group-hover:opacity-100 transition-opacity">
-        <p className="text-[9px] text-white truncate">{file.name}</p>
+    <div className="bg-white border border-gray-200 rounded-2xl">
+      {/* Image + remove */}
+      <div className="relative aspect-4/3 bg-gray-100">
+        {url && (
+          <img
+            src={url}
+            alt={item.file.name}
+            className="w-full h-full object-cover"
+          />
+        )}
+        <button
+          onClick={onRemove}
+          className="absolute top-2.5 right-2.5 w-7 h-7 rounded-full bg-black/60 hover:bg-black/80 flex items-center justify-center transition-colors"
+        >
+          <X size={13} className="text-white" />
+        </button>
+
+        {/* Category badge + dropdown */}
+        <div ref={dropdownRef} className="absolute bottom-2.5 left-2.5">
+          <button
+            onClick={() => setCatOpen((o) => !o)}
+            className="flex items-center gap-1.5 bg-black/70 hover:bg-black/85 backdrop-blur-sm text-white text-[12px] font-medium px-3 py-1.5 rounded-lg transition-colors"
+          >
+            {item.category}
+            <ChevronDown
+              size={11}
+              className={`transition-transform ${catOpen ? "rotate-180" : ""}`}
+            />
+          </button>
+          {catOpen && (
+            <div className="absolute bottom-full mb-1.5 left-0 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden min-w-35 z-10">
+              {IMAGE_CATEGORIES.map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => {
+                    onChange({ category: cat });
+                    setCatOpen(false);
+                  }}
+                  className={`w-full text-left px-4 py-2.5 text-[13px] transition-colors ${
+                    item.category === cat
+                      ? "bg-gray-100 font-semibold text-gray-900"
+                      : "text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Notes */}
+      <div className="px-3 py-2.5">
+        <textarea
+          value={item.notes}
+          onChange={(e) => onChange({ notes: e.target.value })}
+          placeholder="Add notes for this image..."
+          rows={2}
+          className="w-full bg-gray-50 border border-gray-100 rounded-xl px-3 py-2 text-[12px] text-gray-700 placeholder:text-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-gray-200 transition-colors"
+        />
       </div>
     </div>
   );
 }
 
+// ── Upload area ───────────────────────────────────────────────────────────────
+
 export function UploadArea({
-  files,
+  images,
   enabled,
   maxFiles,
   onAdd,
+  onChange,
   onRemove,
   onClear,
 }: {
-  files: File[];
+  images: ImageMeta[];
   enabled: boolean;
   maxFiles: number;
   onAdd: (f: FileList | null) => void;
-  onRemove: (i: number) => void;
+  onChange: (index: number, patch: Partial<ImageMeta>) => void;
+  onRemove: (index: number) => void;
   onClear: () => void;
 }) {
   const [dragging, setDragging] = useState(false);
@@ -295,6 +385,7 @@ export function UploadArea({
 
   return (
     <div className="space-y-3">
+      {/* Drop zone */}
       <div
         onDragOver={(e) => {
           e.preventDefault();
@@ -311,8 +402,8 @@ export function UploadArea({
         <p className="text-[15px] text-gray-500 text-center">
           {!enabled
             ? "Enter a valid NSW address above to enable upload"
-            : files.length > 0
-              ? `${files.length}/${maxFiles} files — click to add more`
+            : images.length > 0
+              ? `${images.length}/${maxFiles} photos — click to add more`
               : "Click or drag & drop images here"}
         </p>
         <p className="text-[12px] text-gray-400 text-center">
@@ -328,11 +419,18 @@ export function UploadArea({
         />
       </div>
 
-      {files.length > 0 && (
+      {/* Image cards grid */}
+      {images.length > 0 && (
         <>
           <div className="flex items-center justify-between">
             <p className="text-[13px] font-semibold text-gray-700">
-              {files.length} image{files.length !== 1 ? "s" : ""} selected
+              {images.length} photo{images.length !== 1 ? "s" : ""} selected
+              {maxFiles > 0 && (
+                <span className="text-gray-400 font-normal">
+                  {" "}
+                  (Expected: {maxFiles})
+                </span>
+              )}
             </p>
             <button
               onClick={onClear}
@@ -341,11 +439,13 @@ export function UploadArea({
               Remove all
             </button>
           </div>
-          <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-            {files.map((f, i) => (
-              <ImageThumb
-                key={`${f.name}-${i}`}
-                file={f}
+          <div className="grid grid-cols-2 gap-3">
+            {images.map((item, i) => (
+              <ImageCard
+                key={`${item.file.name}-${i}`}
+                item={item}
+                index={i}
+                onChange={(patch) => onChange(i, patch)}
                 onRemove={() => onRemove(i)}
               />
             ))}
