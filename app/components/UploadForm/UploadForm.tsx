@@ -1,158 +1,55 @@
 "use client";
 
-import React, { useState, useRef, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import {
-  CloudUpload,
-  FolderOpen,
-  Loader2,
-  CheckCircle2,
-  XCircle,
-} from "lucide-react";
+import { FolderOpen } from "lucide-react";
 import PaymentModal from "../PaymentModal/PaymentModal";
 import api from "@/app/lib/apiClient";
 import { useAuth } from "@/app/providers/AuthContext";
+import type {
+  FormState,
+  OrderProgress,
+  PaymentState,
+} from "@/app/types/upload.types";
+import {
+  ACCEPTED_EXTENSIONS,
+  MAX_IMAGES,
+  POLL_INTERVAL,
+  PRICE_PER_IMAGE,
+  PROPERTY_TYPES,
+  AddressAutocomplete,
+  Label,
+  NumberInput,
+  PricingSummary,
+  ProgressStatus,
+  Section,
+  SelectField,
+  UploadArea,
+} from "./UploadFormFields/UploadFormFields";
 
-const IMAGE_PRICING: Record<number, number> = {
-  2: 32,
-  5: 75,
-  10: 140,
-  20: 260,
-  50: 600,
-};
-
-const IMAGE_OPTIONS = Object.entries(IMAGE_PRICING).map(([count, price]) => ({
-  value: Number(count),
-  label: `${count} Images - $${price}`,
-}));
-
-const PROPERTY_TYPES = [
-  "House",
-  "Duplex",
-  "Apartment/Unit/Flat",
-  "Terrace",
-  "Townhouse",
-  "Vacant Land",
-  "Commercial",
-  "Villa",
-  "Acreage",
+const IMAGE_COUNT_OPTIONS = [
+  { value: "", label: "Select number of images..." },
+  ...Array.from({ length: MAX_IMAGES }, (_, i) => ({
+    value: i + 1,
+    label: `${i + 1} Image${i + 1 !== 1 ? "s" : ""} - $${(i + 1) * PRICE_PER_IMAGE}`,
+  })),
 ];
-
-const SUPPORTED_FORMATS =
-  "JPG, PNG, HEIC, CR3, CR2, DNG, NEF, ARW, RAF, RW2, ORF, PEF";
-const ACCEPTED_EXTENSIONS =
-  ".jpg,.jpeg,.png,.heic,.cr3,.cr2,.dng,.nef,.arw,.raf,.rw2,.orf,.pef";
-const POLL_INTERVAL = 5000;
-
-// ── Sub-components ────────────────────────────────────────────────────────────
-
-const Section = ({
-  children,
-  className = "",
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) => (
-  <div className={`bg-[#f0f2f4] rounded-2xl p-5 ${className}`}>{children}</div>
-);
-
-const Label = ({ children }: { children: React.ReactNode }) => (
-  <label className="block text-[15px] font-semibold text-gray-900 mb-3">
-    {children}
-  </label>
-);
-
-const SelectField = ({
-  value,
-  onChange,
-  options,
-}: {
-  value: string | number;
-  onChange: (v: string) => void;
-  options: { value: string | number; label: string }[];
-}) => (
-  <div className="relative">
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="w-full h-12 px-4 bg-white border border-gray-200 rounded-xl appearance-none text-[15px] text-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-300 cursor-pointer"
-    >
-      {options.map((o) => (
-        <option key={o.value} value={o.value}>
-          {o.label}
-        </option>
-      ))}
-    </select>
-    <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">
-      ▾
-    </span>
-  </div>
-);
-
-const NumberInput = ({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  onChange: (v: number) => void;
-}) => (
-  <div className="flex-1">
-    <Label>{label}</Label>
-    <input
-      type="number"
-      min={0}
-      value={value}
-      onChange={(e) => onChange(Number(e.target.value))}
-      className="w-full h-12 px-4 bg-white border border-gray-200 rounded-xl text-[15px] text-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-300"
-    />
-  </div>
-);
-
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-interface FormState {
-  address: string;
-  imageCount: number;
-  propertyType: string;
-  bedrooms: number;
-  bathrooms: number;
-  carSpaces: number;
-  additionalInfo: string;
-  files: File[];
-}
-
-interface OrderProgress {
-  total: number;
-  completed: number;
-  failed: number;
-  pending: number;
-  allDone: boolean;
-}
-
-interface PaymentState {
-  clientSecret: string;
-  orderId: number;
-}
-
-// ── Main Component ────────────────────────────────────────────────────────────
 
 const UploadForm = () => {
   const router = useRouter();
-  const user = useAuth();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { user } = useAuth();
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const [dragging, setDragging] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [payment, setPayment] = useState<PaymentState | null>(null);
   const [progress, setProgress] = useState<OrderProgress | null>(null);
+  const [nswValid, setNswValid] = useState(false);
 
   const [form, setForm] = useState<FormState>({
     address: "",
-    imageCount: 2,
+    placeId: "",
+    imageCount: 0,
     propertyType: "House",
     bedrooms: 2,
     bathrooms: 2,
@@ -164,8 +61,9 @@ const UploadForm = () => {
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
-  const totalCost = IMAGE_PRICING[form.imageCount] ?? 0;
-  const uploadEnabled = form.address.trim().length > 0;
+  const totalCost = form.imageCount * PRICE_PER_IMAGE;
+  const uploadEnabled =
+    nswValid && form.address.trim().length > 0 && form.imageCount > 0;
 
   // ── Polling ───────────────────────────────────────────────────────────────
 
@@ -178,7 +76,6 @@ const UploadForm = () => {
 
   const startPolling = (orderId: number) => {
     stopPolling();
-
     const poll = async () => {
       try {
         const { data } = await api.get<OrderProgress>(
@@ -189,11 +86,8 @@ const UploadForm = () => {
           stopPolling();
           setTimeout(() => router.push("/library"), 1500);
         }
-      } catch {
-        // silently retry next interval
-      }
+      } catch {}
     };
-
     poll();
     pollRef.current = setInterval(poll, POLL_INTERVAL);
   };
@@ -202,29 +96,28 @@ const UploadForm = () => {
 
   // ── File handling ─────────────────────────────────────────────────────────
 
-  const addFiles = useCallback(
-    (incoming: FileList | null) => {
-      if (!incoming) return;
-      const valid = Array.from(incoming).filter((f) =>
-        ACCEPTED_EXTENSIONS.split(",").some((ext) =>
-          f.name.toLowerCase().endsWith(ext.replace(".", "")),
-        ),
-      );
-      set("files", [...form.files, ...valid].slice(0, form.imageCount));
-    },
-    [form.files, form.imageCount],
-  );
+  const addFiles = useCallback((incoming: FileList | null) => {
+    if (!incoming) return;
+    const valid = Array.from(incoming).filter((f) =>
+      ACCEPTED_EXTENSIONS.split(",").some((ext) =>
+        f.name.toLowerCase().endsWith(ext.replace(".", "")),
+      ),
+    );
+    setForm((prev) => ({
+      ...prev,
+      files: [...prev.files, ...valid].slice(0, prev.imageCount || MAX_IMAGES),
+    }));
+  }, []);
 
-  const onDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      setDragging(false);
-      if (uploadEnabled) addFiles(e.dataTransfer.files);
-    },
-    [uploadEnabled, addFiles],
-  );
+  const removeFile = (i: number) =>
+    setForm((prev) => ({
+      ...prev,
+      files: prev.files.filter((_, idx) => idx !== i),
+    }));
 
-  // ── Create payment intent ─────────────────────────────────────────────────
+  const clearFiles = () => setForm((prev) => ({ ...prev, files: [] }));
+
+  // ── Payment ───────────────────────────────────────────────────────────────
 
   const handlePay = async () => {
     if (!user) return router.push("/auth");
@@ -237,6 +130,7 @@ const UploadForm = () => {
         orderId: number;
       }>("/api/orders/create-payment-intent", {
         address: form.address,
+        placeId: form.placeId,
         propertyType: form.propertyType,
         bedrooms: form.bedrooms,
         bathrooms: form.bathrooms,
@@ -252,70 +146,6 @@ const UploadForm = () => {
     }
   };
 
-  // ── After Stripe confirms + images uploaded ───────────────────────────────
-
-  const handlePaymentSuccess = (orderId: number) => {
-    setPayment(null);
-    startPolling(orderId);
-  };
-
-  // ── Progress status label ─────────────────────────────────────────────────
-
-  const renderProgress = () => {
-    if (!progress) return null;
-
-    if (progress.allDone && progress.failed === 0) {
-      return (
-        <div className="flex items-center gap-2 bg-green-50 border border-green-100 rounded-xl px-4 py-3">
-          <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
-          <p className="text-[13px] text-green-700 font-medium">
-            All {progress.total} images enhanced — redirecting to library…
-          </p>
-        </div>
-      );
-    }
-
-    if (progress.allDone && progress.failed > 0) {
-      return (
-        <div className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-xl px-4 py-3">
-          <XCircle className="w-4 h-4 text-red-400 shrink-0" />
-          <p className="text-[13px] text-red-600">
-            {progress.completed} enhanced, {progress.failed} failed —
-            redirecting…
-          </p>
-        </div>
-      );
-    }
-
-    const pct =
-      progress.total > 0
-        ? Math.round((progress.completed / progress.total) * 100)
-        : 0;
-
-    return (
-      <div className="bg-[#f0f2f4] rounded-xl px-4 py-3 space-y-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Loader2 className="w-3.5 h-3.5 text-gray-500 animate-spin" />
-            <p className="text-[13px] text-gray-600 font-medium">
-              Enhancing images… {progress.completed}/{progress.total}
-            </p>
-          </div>
-          <span className="text-[12px] text-gray-400">{pct}%</span>
-        </div>
-        <div className="w-full bg-gray-200 rounded-full h-1">
-          <div
-            className="bg-gray-700 h-1 rounded-full transition-all duration-700"
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-        <p className="text-[11px] text-gray-400">
-          Checking for updates every 5 seconds
-        </p>
-      </div>
-    );
-  };
-
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
@@ -328,62 +158,56 @@ const UploadForm = () => {
             </p>
           )}
 
+          {/* Address */}
           <Section>
             <Label>Property Address</Label>
-            <input
-              type="text"
+            <AddressAutocomplete
               value={form.address}
-              onChange={(e) => set("address", e.target.value)}
-              placeholder="Enter property address"
-              className="w-full h-12 px-4 bg-white border border-gray-200 rounded-xl text-[15px] text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300 tracking-wide"
+              onChange={(v) => {
+                set("address", v);
+                setNswValid(false);
+              }}
+              onSelect={(address, placeId) => {
+                set("address", address);
+                set("placeId", placeId);
+                setNswValid(true);
+              }}
             />
           </Section>
 
+          {/* Image count selector */}
           <Section>
             <Label>Number of Images:</Label>
             <SelectField
-              value={form.imageCount}
-              onChange={(v) => set("imageCount", Number(v))}
-              options={IMAGE_OPTIONS}
+              value={form.imageCount || ""}
+              onChange={(v) => {
+                const n = Number(v);
+                setForm((prev) => ({
+                  ...prev,
+                  imageCount: n,
+                  files: prev.files.slice(0, n), // trim if switching to lower count
+                }));
+              }}
+              options={
+                IMAGE_COUNT_OPTIONS as {
+                  value: string | number;
+                  label: string;
+                }[]
+              }
             />
           </Section>
 
-          <div
-            onDragOver={(e) => {
-              e.preventDefault();
-              if (uploadEnabled) setDragging(true);
-            }}
-            onDragLeave={() => setDragging(false)}
-            onDrop={onDrop}
-            onClick={() => uploadEnabled && fileInputRef.current?.click()}
-            className={`rounded-2xl border-2 border-dashed py-14 px-6 flex flex-col items-center gap-3 transition-colors
-              ${uploadEnabled ? "cursor-pointer hover:bg-gray-50" : "cursor-not-allowed opacity-70"}
-              ${dragging ? "border-gray-500 bg-gray-50" : "border-gray-300 bg-[#f5f6f7]"}`}
-          >
-            <CloudUpload
-              className="w-14 h-14 text-gray-400"
-              strokeWidth={1.4}
-            />
-            <p className="text-[15px] text-gray-500 text-center">
-              {uploadEnabled
-                ? form.files.length > 0
-                  ? `${form.files.length} file(s) selected`
-                  : "Click or drag & drop images here"
-                : "Enter address above to enable upload"}
-            </p>
-            <p className="text-[13px] text-gray-400 text-center">
-              Supported formats: {SUPPORTED_FORMATS}
-            </p>
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept={ACCEPTED_EXTENSIONS}
-              className="hidden"
-              onChange={(e) => addFiles(e.target.files)}
-            />
-          </div>
+          {/* Upload zone + previews */}
+          <UploadArea
+            files={form.files}
+            enabled={uploadEnabled}
+            maxFiles={form.imageCount}
+            onAdd={addFiles}
+            onRemove={removeFile}
+            onClear={clearFiles}
+          />
 
+          {/* Property details */}
           <Section>
             <h2 className="text-[17px] font-bold text-gray-900 mb-4">
               Property Details
@@ -423,20 +247,13 @@ const UploadForm = () => {
                   className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-[15px] text-gray-800 resize-y focus:outline-none focus:ring-2 focus:ring-gray-300"
                 />
               </div>
-              <div className="flex items-center justify-between pt-1">
-                <span className="text-[15px] font-bold text-gray-900">
-                  Total Cost:
-                </span>
-                <span className="text-[15px] font-bold text-gray-900">
-                  ${totalCost}
-                </span>
-              </div>
+              <PricingSummary fileCount={form.imageCount} />
             </div>
           </Section>
 
+          {/* Actions */}
           <div className="space-y-3 pt-1">
-            {renderProgress()}
-
+            <ProgressStatus progress={progress} />
             <button
               onClick={handlePay}
               disabled={
@@ -445,19 +262,21 @@ const UploadForm = () => {
                 submitting ||
                 !!progress
               }
-              className="w-full h-14 rounded-2xl bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-[15px] font-medium transition-colors"
+              className="w-full h-14 rounded-2xl bg-gray-900 hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-[15px] font-medium transition-colors"
             >
-              {submitting ? "Preparing payment…" : "Pay & Send to Editor"}
+              {submitting
+                ? "Preparing payment…"
+                : form.imageCount > 0
+                  ? `Pay $${totalCost} & Send to Editor`
+                  : "Pay & Send to Editor"}
             </button>
-
             <button
               onClick={() =>
                 user ? router.push("/library") : router.push("/auth")
               }
               className="w-full h-14 rounded-2xl bg-[#f0f2f4] hover:bg-gray-200 text-gray-800 text-[15px] font-medium flex items-center justify-center gap-2 transition-colors"
             >
-              <FolderOpen className="w-4 h-4" />
-              Go to Library
+              <FolderOpen className="w-4 h-4" /> Go to Library
             </button>
           </div>
         </div>
@@ -469,7 +288,10 @@ const UploadForm = () => {
           orderId={payment.orderId}
           totalCost={totalCost}
           files={form.files}
-          onSuccess={handlePaymentSuccess}
+          onSuccess={(orderId) => {
+            setPayment(null);
+            startPolling(orderId);
+          }}
           onClose={() => setPayment(null)}
         />
       )}
