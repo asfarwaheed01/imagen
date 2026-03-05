@@ -6,6 +6,7 @@ import { ImageItem, ImageVersion } from "@/app/types/revision.types";
 import { SliderComparison } from "@/app/components/SliderComparison/SliderComparison";
 import { StatusBadge } from "../StatusBadge/StatusBadge";
 import { VersionThumb } from "../VersionThumb/VersionThumb";
+import { ImagePreview } from "../ImagePreview/ImagePreview";
 
 interface Props {
   image: ImageItem;
@@ -46,6 +47,7 @@ export function ImageCard({
   const [selectedKey, setSelectedKey] = useState(lastKey);
   const [revisionsOpen, setRevisionsOpen] = useState(false);
   const [prompt, setPrompt] = useState("");
+  const [previewKey, setPreviewKey] = useState<string | null>(null);
 
   useEffect(() => {
     if (versions.length > 0) setSelectedKey(versions.at(-1)!.key);
@@ -120,6 +122,7 @@ export function ImageCard({
                     label={v.label}
                     selected={selectedKey === v.key}
                     onClick={() => setSelectedKey(v.key)}
+                    onPreview={() => setPreviewKey(v.key)}
                   />
                 ))}
               </div>
@@ -169,6 +172,14 @@ export function ImageCard({
             </button>
           </div>
         </div>
+      )}
+      {previewKey && (
+        <ImagePreview
+          versions={versions}
+          activeKey={previewKey}
+          onClose={() => setPreviewKey(null)}
+          onNavigate={setPreviewKey}
+        />
       )}
     </div>
   );

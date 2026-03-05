@@ -5,12 +5,20 @@ interface Props {
   label: string;
   selected: boolean;
   onClick: () => void;
+  onPreview?: () => void;
 }
 
-export function VersionThumb({ url, label, selected, onClick }: Props) {
+export function VersionThumb({
+  url,
+  label,
+  selected,
+  onClick,
+  onPreview,
+}: Props) {
   return (
     <button
       onClick={onClick}
+      onDoubleClick={onPreview}
       className={`relative shrink-0 w-36 rounded-xl overflow-hidden border-2 transition-all ${
         selected
           ? "border-gray-900 shadow-md"
