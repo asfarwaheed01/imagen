@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, Images } from "lucide-react";
+import { ArrowLeft, Loader2, Images, Download } from "lucide-react";
 import api from "@/app/lib/apiClient";
 import { ImageItem, Order } from "@/app/types/revision.types";
 import { OrderDetailHeader } from "./components/OrderDetailHeader/OrderDetailHeader";
@@ -154,6 +154,73 @@ const OrderDetailPage = () => {
           ))}
         </div>
       </div>
+      {images.some((img) => img.editedKey ?? img.job?.resultKey) && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+          <button
+            onClick={async () => {
+              const toDownload = images.flatMap((img) => {
+                const ext = (url: string) =>
+                  url.split(".").pop()?.split("?")[0] ?? "jpg";
+                const base =
+                  img.originalFilename?.replace(/\.[^/.]+$/, "") ??
+                  `image-${img.id}`;
+                const results: { url: string; filename: string }[] = [];
+
+                const editedUrl = img.editedKey ?? img.job?.resultKey;
+                if (editedUrl)
+                  results.push({
+                    url: editedUrl,
+                    filename: `${base}_edited.${ext(editedUrl)}`,
+                  });
+
+                img.revisions
+                  .filter((r) => r.resultKey && r.status === "completed")
+                  .sort((a, b) => a.revisionNumber - b.revisionNumber)
+                  .forEach((r) =>
+                    results.push({
+                      url: r.resultKey!,
+                      filename: `${base}_rev${r.revisionNumber}.${ext(r.resultKey!)}`,
+                    }),
+                  );
+
+                return results;
+              });
+
+              for (const { url, filename } of toDownload) {
+                try {
+                  const blob = await fetch(url).then((r) => r.blob());
+                  const objectUrl = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = objectUrl;
+                  a.download = filename;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(objectUrl);
+                  await new Promise((r) => setTimeout(r, 500));
+                } catch {
+                  console.error(`Failed to download: ${filename}`);
+                }
+              }
+            }}
+            className="cursor-pointer flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-gray-900 border border-gray-700 text-white/80 hover:bg-gray-700 hover:text-white text-sm transition-all shadow-xl"
+          >
+            <Download size={14} />
+            Download All (
+            {
+              images
+                .flatMap((img) => [
+                  img.editedKey ?? img.job?.resultKey,
+                  ...img.revisions
+                    .filter((r) => r.resultKey && r.status === "completed")
+                    .map((r) => r.resultKey),
+                ])
+                .filter(Boolean).length
+            }
+            )
+          </button>
+        </div>
+      )}
     </div>
   );
 };

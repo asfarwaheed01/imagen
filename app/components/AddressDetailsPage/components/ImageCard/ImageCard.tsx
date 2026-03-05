@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Download, Loader2, Eye, Send, ChevronDown } from "lucide-react";
+import { Loader2, Eye, Send, ChevronDown } from "lucide-react";
 import { ImageItem, ImageVersion } from "@/app/types/revision.types";
 import { SliderComparison } from "@/app/components/SliderComparison/SliderComparison";
 import { StatusBadge } from "../StatusBadge/StatusBadge";
@@ -90,24 +90,6 @@ export function ImageCard({
         </div>
         <StatusBadge status={jobStatus} />
       </div>
-
-      {/* Downloads */}
-      {hasResult && (
-        <div className="px-4 pb-2 grid grid-cols-2 gap-2">
-          <button
-            onClick={() => window.open(originalUrl, "_blank")}
-            className="h-10 rounded-xl border border-gray-200 text-[13px] text-gray-600 hover:bg-gray-50 transition-colors flex items-center justify-center gap-1.5"
-          >
-            <Download size={13} /> Original
-          </button>
-          <button
-            onClick={() => window.open(editedUrl, "_blank")}
-            className="h-10 rounded-xl border border-gray-200 text-[13px] text-gray-600 hover:bg-gray-50 transition-colors flex items-center justify-center gap-1.5"
-          >
-            <Download size={13} /> Edited
-          </button>
-        </div>
-      )}
 
       {/* Revisions accordion */}
       {hasRevisions && (
