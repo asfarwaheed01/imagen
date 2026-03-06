@@ -346,7 +346,7 @@ function ImageCard({
           onChange={(e) => onChange({ notes: e.target.value })}
           placeholder="Add notes for this image..."
           rows={2}
-          className="w-full bg-gray-50 border border-gray-100 rounded-xl px-3 py-2 text-[12px] text-gray-700 placeholder:text-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-gray-200 transition-colors"
+          className="w-full bg-gray-50 border border-gray-100 rounded-xl px-3 py-2 text-[16px] text-gray-700 placeholder:text-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-gray-200 transition-colors"
         />
       </div>
     </div>
