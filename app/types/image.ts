@@ -6,27 +6,39 @@ export type EditingStyle = {
 
 export const EDITING_STYLES: EditingStyle[] = [
   {
-    id: "day-to-night",
-    label: "Day to Night",
+    id: "internal",
+    label: "Internal",
     prompt:
-      "Convert this real estate property photo to a stunning night scene with warm glowing lights, a dark sky, and professional marketing quality.",
+      "Target a Maree Homer editorial aesthetic: calm, natural, timeless, quietly luminous — never clinical, never over-processed. Increase overall brightness with restraint; whites should be white, not colour casting on the walls from other light sources. But do not make it look too clinical. Any dark areas — illuminate and brighten. Whites must be natural and neutral, and architectural (not stark). Lift whites moderately (~60–70%) while fully preserving highlight detail. Preserve all original wall hues exactly — no colour shifting or desaturation. Remove edge vignetting and eliminate muddy corners without flattening depth. Windows (HDR): Use generative fill to recover the actual view through the windows and doors. Correct the exposure so the exterior is perfectly balanced and clearly visible, ensuring it is no longer blown out or overexposed, while maintaining the property's original surroundings. If you can't infer the surroundings, leave overexposed. Apply a gentle, refined S-curve: clean highlights, grounded shadows. Do not add glow, keep it as realistic as possible. Colours should be true and editorial — vibrant through accuracy, not saturation. Increase micro-contrast, texture, and clarity subtly to achieve Maree Homer's crisp, detailed finish. Surfaces should read sharp and tactile, never crunchy or HDR. Not overly textured. Maintain edge definition and material detail (timber grain, stone, fabric, joinery). Shape depth using soft, sun-driven shadows, not heavy contrast. Remove only non-structural clutter, marks, stains, dirt, cars, and distractions. Do not alter architecture, materials, styling, or composition.",
   },
   {
-    id: "enhance",
-    label: "Enhance Lighting",
+    id: "external-day",
+    label: "External Day",
     prompt:
-      "Enhance the lighting of this real estate photo to make it look bright, warm, and professionally photographed for marketing.",
+      "Edit this in a clean, crisp editorial external day. Sky to be a soft natural white or pale blue — no oversaturation. All exterior lighting off. Greenery to be a deep forest green with -10 desaturation and -10 brightness. Remove all non-structural clutter, marks, stains, dirt and cars. Add subtle metallic reflection off all glass surfaces. Think: Maree Homer x The Local Project. DO NOT remove or add any objects, structures, greenery or outdoor furniture. DO NOT remove mailbox/posts.",
   },
   {
-    id: "sky-replace",
-    label: "Sky Replacement",
+    id: "dusk",
+    label: "Dusk",
     prompt:
-      "Replace the sky in this real estate photo with a beautiful blue sky with soft clouds for a perfect marketing image.",
+      "Edit to a refined editorial dusk. Sky to be a deep moody blue-grey with soft warm undertones — no harsh purples or oversaturated oranges. All garage and external spotlights on with warm amber glow. Windows and doors to emit a subtle warm internal warmth. Greenery darkened to a deep forest green. Add soft, realistic artificial lighting pooling across the facade. Think: quietly dramatic, Maree Homer meets luxury real estate. DO NOT remove or add any objects, structures etc. DO NOT remove any outdoor furniture. DO NOT remove mailbox/posts.",
   },
   {
-    id: "twilight",
-    label: "Twilight",
+    id: "drone",
+    label: "Drone",
     prompt:
-      "Transform this real estate photo into a golden hour twilight shot with warm orange and purple tones in the sky.",
+      "Edit this aerial drone image to a clean, editorial finish. Sky to be a soft natural pale white or blue — no oversaturation. Increase overall clarity and micro-contrast subtly. Greenery and landscaping to be a deep, rich forest green. Roads, rooftops and hard surfaces to read sharp and defined. Remove any non-structural clutter or distractions. Colours should be true and editorial — vibrant through accuracy, not saturation. Think: architectural overview meets Maree Homer editorial. DO NOT alter any structures, landscaping or composition.",
+  },
+  {
+    id: "day-to-dusk",
+    label: "Day to Dusk",
+    prompt:
+      "Edit to be a soft editorial day to dusk. No harsh shadows or oversaturated lights. Think: slightly warmer Maree Homer cross with The Local Project. Make the sky a soft warm white — no bright blues, purples or oranges. Leave garage and spotlights off. Do not add or remove anything structural about the image including greenery. Remove the clutter. All greenery to be a deep forest green with -10 desaturation and -10 brightness. Give windows a warm metallic reflection and subdued internal warmth to all windows and doors. DO NOT remove or add any objects, structures etc. DO NOT remove any outdoor furniture. DO NOT remove mailbox/posts.",
+  },
+  {
+    id: "golden-hour",
+    label: "Golden Hour",
+    prompt:
+      "Edit this in a subtle editorial golden hour. Sky pale warm white. Add subtle metallic reflection off all glass. Accentuate and add sunlight shadows. All external lights off. Greenery darkened to deep forest green. Exposure of sunlight sits at 75%. Think: Coco Republic x The Local Project. DO NOT remove or add any objects, structures etc.",
   },
 ];

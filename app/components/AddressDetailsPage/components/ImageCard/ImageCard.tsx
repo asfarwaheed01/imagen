@@ -61,7 +61,11 @@ export function ImageCard({
     <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
       {/* Slider or processing placeholder */}
       {hasResult ? (
-        <SliderComparison originalUrl={originalUrl} resultUrl={editedUrl} />
+        // <SliderComparison originalUrl={originalUrl} resultUrl={editedUrl} />
+        <SliderComparison
+          originalUrl={originalUrl}
+          resultUrl={versions.at(-1)?.url ?? editedUrl}
+        />
       ) : (
         <div className="relative w-full aspect-4/3 bg-gray-50 flex items-center justify-center overflow-hidden">
           {originalUrl && (

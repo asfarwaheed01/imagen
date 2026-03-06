@@ -45,6 +45,7 @@ export const IMAGE_CATEGORIES = [
   "Dusk",
   "Drone",
   "Day to Dusk",
+  "Golden Hour",
 ];
 
 // ── Primitives ────────────────────────────────────────────────────────────────
@@ -60,7 +61,7 @@ export const Section = ({
 );
 
 export const Label = ({ children }: { children: React.ReactNode }) => (
-  <label className="block text-[15px] font-semibold text-gray-900 mb-3">
+  <label className="block text-[16px] font-semibold text-gray-900 mb-3">
     {children}
   </label>
 );
@@ -78,7 +79,7 @@ export const SelectField = ({
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full h-12 px-4 bg-white border border-gray-200 rounded-xl appearance-none text-[15px] text-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-300 cursor-pointer"
+      className="w-full h-12 px-4 bg-white border border-gray-200 rounded-xl appearance-none text-[16px] text-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-300 cursor-pointer"
     >
       {options.map((o) => (
         <option key={o.value} value={o.value}>
@@ -108,7 +109,7 @@ export const NumberInput = ({
       min={0}
       value={value}
       onChange={(e) => onChange(Number(e.target.value))}
-      className="w-full h-12 px-4 bg-white border border-gray-200 rounded-xl text-[15px] text-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-300"
+      className="w-full h-12 px-4 bg-white border border-gray-200 rounded-xl text-[16px] text-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-300"
     />
   </div>
 );
@@ -195,7 +196,7 @@ export function AddressAutocomplete({
           value={value}
           onChange={(e) => handleChange(e.target.value)}
           placeholder="Enter NSW property address"
-          className={`w-full h-12 pl-10 pr-10 bg-white border rounded-xl text-[15px] text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 transition-colors ${
+          className={`w-full h-12 pl-10 pr-10 bg-white border rounded-xl text-[16px] text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 transition-colors ${
             nsw === false
               ? "border-red-300 focus:ring-red-200"
               : nsw === true
