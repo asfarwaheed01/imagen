@@ -151,7 +151,7 @@ export function ImageCard({
             onChange={(e) => setPrompt(e.target.value)}
             placeholder="Add revision for this image..."
             rows={3}
-            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[13px] text-gray-800 placeholder:text-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-gray-200 transition-colors"
+            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[16px] text-gray-800 placeholder:text-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-gray-200 transition-colors"
           />
           <div className="flex justify-end">
             <button
