@@ -260,7 +260,7 @@ const UploadForm = () => {
                   value={form.additionalInfo}
                   onChange={(e) => set("additionalInfo", e.target.value)}
                   rows={4}
-                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-[15px] text-gray-800 resize-y focus:outline-none focus:ring-2 focus:ring-gray-300"
+                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-[16px] text-gray-800 resize-y focus:outline-none focus:ring-2 focus:ring-gray-300"
                 />
               </div>
               <PricingSummary fileCount={form.imageCount} />
