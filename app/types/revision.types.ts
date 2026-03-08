@@ -27,6 +27,7 @@ export interface ImageItem {
   createdAt: string;
   job: Job | null;
   revisions: Revision[];
+  category?: string | null;
 }
 
 export interface Order {

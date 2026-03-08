@@ -91,7 +91,9 @@ export function ImageCard({
             Photo {index + 1}
           </span>
           <span className="text-[12px] text-gray-400 bg-gray-100 px-2.5 py-0.5 rounded-full truncate">
-            {image.originalFilename.replace(/\.[^/.]+$/, "")}
+            {image.category && (
+              <span className="ml-1 text-gray-500">{`${image.category}`}</span>
+            )}
           </span>
         </div>
         <StatusBadge status={jobStatus} />
