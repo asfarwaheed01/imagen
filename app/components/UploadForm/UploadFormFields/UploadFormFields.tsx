@@ -267,6 +267,22 @@ function ImageCard({
   const [catOpen, setCatOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  const RAW_EXTENSIONS = [
+    "arw",
+    "dng",
+    "cr2",
+    "cr3",
+    "nef",
+    "raf",
+    "rw2",
+    "orf",
+    "pef",
+  ];
+
+  const isRaw = RAW_EXTENSIONS.includes(
+    item.file.name.split(".").pop()?.toLowerCase() ?? "",
+  );
+
   useEffect(() => {
     const u = URL.createObjectURL(item.file);
     setUrl(u);
@@ -290,12 +306,23 @@ function ImageCard({
     <div className="bg-white border border-gray-200 rounded-2xl">
       {/* Image + remove */}
       <div className="relative aspect-4/3 bg-gray-100">
-        {url && (
-          <img
-            src={url}
-            alt={item.file.name}
-            className="w-full h-full object-cover"
-          />
+        {isRaw ? (
+          <div className="w-full h-full flex flex-col items-center justify-center gap-1.5 bg-gray-100">
+            <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">
+              {item.file.name.split(".").pop()?.toUpperCase()}
+            </span>
+            <span className="text-[10px] text-gray-400">
+              {(item.file.size / 1024 / 1024).toFixed(1)} MB
+            </span>
+          </div>
+        ) : (
+          url && (
+            <img
+              src={url}
+              alt={item.file.name}
+              className="w-full h-full object-cover"
+            />
+          )
         )}
         <button
           onClick={onRemove}
