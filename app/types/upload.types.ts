@@ -2,6 +2,9 @@ export interface ImageMeta {
   file: File;
   category: string;
   notes: string;
+  gcpUrl?: string;
+  uploading?: boolean;
+  uploadError?: string;
 }
 
 export interface FormState {

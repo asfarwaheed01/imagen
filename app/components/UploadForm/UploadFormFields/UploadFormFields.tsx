@@ -9,6 +9,7 @@ import {
   AlertCircle,
   CheckCircle2,
   ChevronDown,
+  RefreshCw,
 } from "lucide-react";
 import api from "@/app/lib/apiClient";
 import {
@@ -47,6 +48,22 @@ export const IMAGE_CATEGORIES = [
   "Day to Dusk",
   "Golden Hour",
 ];
+
+const RAW_EXTENSIONS = new Set([
+  "arw",
+  "dng",
+  "cr2",
+  "cr3",
+  "nef",
+  "raf",
+  "rw2",
+  "orf",
+  "pef",
+]);
+
+function isRawFile(name: string): boolean {
+  return RAW_EXTENSIONS.has(name.split(".").pop()?.toLowerCase() ?? "");
+}
 
 // ── Primitives ────────────────────────────────────────────────────────────────
 
@@ -250,11 +267,10 @@ export function AddressAutocomplete({
   );
 }
 
-// ── Per-image card with category + notes ──────────────────────────────────────
+// ── ImageCard — auto-uploads to GCP on mount, renders GCP URL as preview ──────
 
 function ImageCard({
   item,
-  index,
   onChange,
   onRemove,
 }: {
@@ -263,33 +279,40 @@ function ImageCard({
   onChange: (patch: Partial<ImageMeta>) => void;
   onRemove: () => void;
 }) {
-  const [url, setUrl] = useState<string | null>(null);
   const [catOpen, setCatOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const uploadedRef = useRef(false); // prevents React StrictMode double-fire
 
-  const RAW_EXTENSIONS = [
-    "arw",
-    "dng",
-    "cr2",
-    "cr3",
-    "nef",
-    "raf",
-    "rw2",
-    "orf",
-    "pef",
-  ];
+  const raw = isRawFile(item.file.name);
 
-  const isRaw = RAW_EXTENSIONS.includes(
-    item.file.name.split(".").pop()?.toLowerCase() ?? "",
-  );
+  // ── Upload on mount ───────────────────────────────────────────────────────
+  const doUpload = useCallback(async () => {
+    onChange({ uploading: true, uploadError: undefined });
+    try {
+      const body = new FormData();
+      body.append("file", item.file);
+      const { data } = await api.post<{ url: string }>(
+        "/api/upload/temp-image",
+        body,
+        { headers: { "Content-Type": "multipart/form-data" } },
+      );
+      onChange({ gcpUrl: data.url, uploading: false });
+    } catch (err: any) {
+      onChange({
+        uploading: false,
+        uploadError: err?.response?.data?.error ?? "Upload failed. Retry?",
+      });
+    }
+  }, [item.file, onChange]);
 
   useEffect(() => {
-    const u = URL.createObjectURL(item.file);
-    setUrl(u);
-    return () => URL.revokeObjectURL(u);
-  }, [item.file]);
+    if (uploadedRef.current || item.gcpUrl) return;
+    uploadedRef.current = true;
+    doUpload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Close dropdown on outside click
+  // ── Close dropdown on outside click ──────────────────────────────────────
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (
@@ -302,28 +325,70 @@ function ImageCard({
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  // ── Preview ───────────────────────────────────────────────────────────────
+  const renderPreview = () => {
+    if (item.uploading) {
+      return (
+        <div className="w-full h-full flex flex-col items-center justify-center gap-2 bg-gray-100">
+          <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
+          <span className="text-[11px] text-gray-400">Uploading…</span>
+        </div>
+      );
+    }
+
+    if (item.uploadError) {
+      return (
+        <div className="w-full h-full flex flex-col items-center justify-center gap-2 bg-red-50 px-4 text-center">
+          <AlertCircle className="w-5 h-5 text-red-400" />
+          <span className="text-[11px] text-red-400">{item.uploadError}</span>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              uploadedRef.current = false;
+              doUpload();
+            }}
+            className="flex items-center gap-1 text-[11px] text-red-500 hover:text-red-700 font-medium mt-1"
+          >
+            <RefreshCw size={10} /> Retry
+          </button>
+        </div>
+      );
+    }
+
+    // GCP URL always wins — RAW files are converted to JPEG on the backend
+    if (item.gcpUrl) {
+      return (
+        <img
+          src={item.gcpUrl}
+          alt={item.file.name}
+          className="w-full h-full object-cover"
+        />
+      );
+    }
+
+    // No gcpUrl yet and it is a RAW file — show extension badge as placeholder
+    if (raw) {
+      return (
+        <div className="w-full h-full flex flex-col items-center justify-center gap-1.5 bg-gray-100">
+          <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">
+            {item.file.name.split(".").pop()?.toUpperCase()}
+          </span>
+          <span className="text-[10px] text-gray-400">
+            {(item.file.size / 1024 / 1024).toFixed(1)} MB
+          </span>
+        </div>
+      );
+    }
+
+    return <div className="w-full h-full bg-gray-100" />;
+  };
+
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl">
-      {/* Image + remove */}
+    <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
       <div className="relative aspect-4/3 bg-gray-100">
-        {isRaw ? (
-          <div className="w-full h-full flex flex-col items-center justify-center gap-1.5 bg-gray-100">
-            <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">
-              {item.file.name.split(".").pop()?.toUpperCase()}
-            </span>
-            <span className="text-[10px] text-gray-400">
-              {(item.file.size / 1024 / 1024).toFixed(1)} MB
-            </span>
-          </div>
-        ) : (
-          url && (
-            <img
-              src={url}
-              alt={item.file.name}
-              className="w-full h-full object-cover"
-            />
-          )
-        )}
+        {renderPreview()}
+
+        {/* Remove */}
         <button
           onClick={onRemove}
           className="absolute top-2.5 right-2.5 w-7 h-7 rounded-full bg-black/60 hover:bg-black/80 flex items-center justify-center transition-colors"
@@ -413,7 +478,6 @@ export function UploadArea({
 
   return (
     <div className="space-y-3">
-      {/* Drop zone */}
       <div
         onDragOver={(e) => {
           e.preventDefault();
@@ -447,7 +511,6 @@ export function UploadArea({
         />
       </div>
 
-      {/* Image cards grid */}
       {images.length > 0 && (
         <>
           <div className="flex items-center justify-between">
