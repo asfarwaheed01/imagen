@@ -362,7 +362,7 @@
 
 "use client";
 
-import React, { useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { FolderOpen } from "lucide-react";
 import PaymentModal from "../PaymentModal/PaymentModal";

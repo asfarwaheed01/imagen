@@ -384,7 +384,7 @@ function ImageCard({
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+    <div className="bg-white border border-gray-200 rounded-2xl">
       <div className="relative aspect-4/3 bg-gray-100">
         {renderPreview()}
 
