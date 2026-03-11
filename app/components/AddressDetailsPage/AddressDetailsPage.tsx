@@ -280,6 +280,8 @@ const OrderDetailPage = () => {
   };
 
   // ── Polling ───────────────────────────────────────────────────────────────
+  // Poll the lightweight status endpoint every 5s.
+  // Only call the full library API when completed/failed count changes.
 
   const stopPolling = () => {
     if (pollRef.current) {
@@ -290,9 +292,28 @@ const OrderDetailPage = () => {
 
   const startPolling = () => {
     stopPolling();
+    let lastSnapshot = "";
+
     pollRef.current = setInterval(async () => {
-      const latest = await fetchOrder();
-      if (allDone(latest)) stopPolling();
+      try {
+        const { data } = await api.get<{
+          total: number;
+          completed: number;
+          failed: number;
+          allDone: boolean;
+        }>(`/api/orders/${orderId}/status`);
+
+        const snapshot = `${data.completed}:${data.failed}`;
+
+        if (snapshot !== lastSnapshot) {
+          lastSnapshot = snapshot;
+          await fetchOrder(); // something changed — refresh full data
+        }
+
+        if (data.allDone) stopPolling();
+      } catch {
+        // network blip — keep polling
+      }
     }, POLL_INTERVAL);
   };
 
@@ -301,8 +322,10 @@ const OrderDetailPage = () => {
       if (!allDone(imgs)) startPolling();
     });
     return stopPolling;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId]);
 
+  // ── Revision submit ───────────────────────────────────────────────────────
 
   const handleRevisionSubmit = async (
     imageId: number,
@@ -317,7 +340,7 @@ const OrderDetailPage = () => {
         sourceUrl,
       });
       await fetchOrder();
-      startPolling(); // restart polling — revision is now in-flight
+      startPolling(); // restart — revision is now in-flight, status will change
     } catch (err: any) {
       setError(err.response?.data?.message ?? "Failed to submit revision");
     } finally {
@@ -380,7 +403,7 @@ const OrderDetailPage = () => {
           order={order}
           images={images}
           view={view}
-          onBack={() => router.back()}
+          onBack={() => router.push("/library")}
           onViewChange={setView}
         />
         <div className="flex flex-col items-center justify-center py-32 gap-4">
