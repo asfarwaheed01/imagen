@@ -322,10 +322,7 @@ const OrderDetailPage = () => {
       if (!allDone(imgs)) startPolling();
     });
     return stopPolling;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId]);
-
-  // ── Revision submit ───────────────────────────────────────────────────────
 
   const handleRevisionSubmit = async (
     imageId: number,
@@ -340,7 +337,7 @@ const OrderDetailPage = () => {
         sourceUrl,
       });
       await fetchOrder();
-      startPolling(); // restart — revision is now in-flight, status will change
+      startPolling();
     } catch (err: any) {
       setError(err.response?.data?.message ?? "Failed to submit revision");
     } finally {
