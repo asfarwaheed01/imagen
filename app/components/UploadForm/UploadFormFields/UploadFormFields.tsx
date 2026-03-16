@@ -281,22 +281,70 @@ function ImageCard({
 }) {
   const [catOpen, setCatOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const uploadedRef = useRef(false); // prevents React StrictMode double-fire
+  const uploadedRef = useRef(false);
 
   const raw = isRawFile(item.file.name);
 
-  // ── Upload on mount ───────────────────────────────────────────────────────
+  const THIRTY_TWO_MB = 32 * 1024 * 1024;
+
+  // const doUpload = useCallback(async () => {
+  //   onChange({ uploading: true, uploadError: undefined });
+  //   try {
+  //     const body = new FormData();
+  //     body.append("file", item.file);
+  //     const { data } = await api.post<{ url: string }>(
+  //       "/api/upload/temp-image",
+  //       body,
+  //       { headers: { "Content-Type": "multipart/form-data" } },
+  //     );
+  //     onChange({ gcpUrl: data.url, uploading: false });
+  //   } catch (err: any) {
+  //     onChange({
+  //       uploading: false,
+  //       uploadError: err?.response?.data?.error ?? "Upload failed. Retry?",
+  //     });
+  //   }
+  // }, [item.file, onChange]);
+
   const doUpload = useCallback(async () => {
     onChange({ uploading: true, uploadError: undefined });
     try {
-      const body = new FormData();
-      body.append("file", item.file);
-      const { data } = await api.post<{ url: string }>(
-        "/api/upload/temp-image",
-        body,
-        { headers: { "Content-Type": "multipart/form-data" } },
-      );
-      onChange({ gcpUrl: data.url, uploading: false });
+      let url: string;
+
+      if (item.file.size <= THIRTY_TWO_MB) {
+        // ── Existing path — untouched
+        const body = new FormData();
+        body.append("file", item.file);
+        const { data } = await api.post<{ url: string }>(
+          "/api/upload/temp-image",
+          body,
+          { headers: { "Content-Type": "multipart/form-data" } },
+        );
+        url = data.url;
+      } else {
+        // ── Large file: signed URL → direct GCS PUT
+        const params = new URLSearchParams({
+          filename: item.file.name,
+          contentType: item.file.type || "application/octet-stream",
+        });
+
+        const { data: signed } = await api.get<{
+          uploadUrl: string;
+          fileUrl: string;
+        }>(`/api/upload/signed-url?${params}`);
+
+        await fetch(signed.uploadUrl, {
+          method: "PUT",
+          headers: {
+            "Content-Type": item.file.type || "application/octet-stream",
+          },
+          body: item.file,
+        });
+
+        url = signed.fileUrl;
+      }
+
+      onChange({ gcpUrl: url, uploading: false });
     } catch (err: any) {
       onChange({
         uploading: false,
@@ -309,7 +357,6 @@ function ImageCard({
     if (uploadedRef.current || item.gcpUrl) return;
     uploadedRef.current = true;
     doUpload();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Close dropdown on outside click ──────────────────────────────────────
