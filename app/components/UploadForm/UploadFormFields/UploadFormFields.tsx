@@ -312,7 +312,6 @@ function ImageCard({
       let url: string;
 
       if (item.file.size <= THIRTY_TWO_MB) {
-        // ── Existing path — untouched
         const body = new FormData();
         body.append("file", item.file);
         const { data } = await api.post<{ url: string }>(
@@ -322,26 +321,29 @@ function ImageCard({
         );
         url = data.url;
       } else {
-        // ── Large file: signed URL → direct GCS PUT
-        const params = new URLSearchParams({
-          filename: item.file.name,
-          contentType: item.file.type || "application/octet-stream",
-        });
+        const contentType = item.file.type || "application/octet-stream";
 
         const { data: signed } = await api.get<{
           uploadUrl: string;
           fileUrl: string;
-        }>(`/api/upload/signed-url?${params}`);
+        }>(
+          `/api/upload/signed-url?${new URLSearchParams({ filename: item.file.name, contentType })}`,
+        );
 
         await fetch(signed.uploadUrl, {
           method: "PUT",
-          headers: {
-            "Content-Type": item.file.type || "application/octet-stream",
-          },
+          headers: { "Content-Type": contentType },
           body: item.file,
         });
 
-        url = signed.fileUrl;
+        if (raw) {
+          const { data: converted } = await api.get<{ url: string }>(
+            `/api/upload/signed-url?${new URLSearchParams({ fileUrl: signed.fileUrl, filename: item.file.name })}`,
+          );
+          url = converted.url;
+        } else {
+          url = signed.fileUrl;
+        }
       }
 
       onChange({ gcpUrl: url, uploading: false });
@@ -351,7 +353,7 @@ function ImageCard({
         uploadError: err?.response?.data?.error ?? "Upload failed. Retry?",
       });
     }
-  }, [item.file, onChange]);
+  }, [item.file, onChange, raw]);
 
   useEffect(() => {
     if (uploadedRef.current || item.gcpUrl) return;
